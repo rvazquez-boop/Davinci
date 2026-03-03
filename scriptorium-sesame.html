@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Scriptorium de Sesame</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgenjs.bundle.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --parchment: #f4e4c1; --parchment-dark: #e8d5a3; --gold: #c9a84c; --gold-bright: #d4af37;
+            --dark-brown: #2c1810; --medium-brown: #4a3728; --burgundy: #722f37; --deep-bg: #0f0a05;
+            --cream: #faf3e3; --ink: #1a1209;
+        }
+        body { font-family: 'Cormorant Garamond', Georgia, serif; background: var(--deep-bg); color: var(--cream); min-height: 100vh; overflow-x: hidden; }
+
+        .header { text-align: center; padding: 30px 20px 20px; background: linear-gradient(180deg, rgba(201,168,76,0.15) 0%, transparent 100%); border-bottom: 2px solid var(--gold); position: relative; }
+        .header::after { content: ''; position: absolute; bottom: -3px; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--gold-bright), transparent); }
+        .header h1 { font-family: 'Cinzel Decorative', serif; font-size: 2.4rem; color: var(--gold); text-shadow: 0 2px 8px rgba(201,168,76,0.3); letter-spacing: 3px; }
+        .header p { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 1.15rem; color: var(--parchment-dark); margin-top: 6px; letter-spacing: 1px; }
+        .ornament { text-align: center; color: var(--gold); font-size: 1.5rem; letter-spacing: 12px; opacity: 0.5; margin: 8px 0; }
+
+        .main { display: flex; gap: 0; min-height: calc(100vh - 120px); }
+
+        .left-panel { width: 38%; min-width: 380px; padding: 30px; background: linear-gradient(135deg, rgba(44,24,16,0.8), rgba(15,10,5,0.95)); border-right: 2px solid rgba(201,168,76,0.3); display: flex; flex-direction: column; gap: 20px; }
+        .section-title { font-family: 'Cinzel', serif; font-size: 1.1rem; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; border-bottom: 1px solid rgba(201,168,76,0.2); padding-bottom: 8px; }
+
+        .drop-zone { border: 2px dashed var(--gold); border-radius: 12px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.3s; background: rgba(201,168,76,0.04); }
+        .drop-zone:hover, .drop-zone.dragover { background: rgba(201,168,76,0.12); border-color: var(--gold-bright); transform: scale(1.01); }
+        .drop-zone.has-file { border-style: solid; background: rgba(201,168,76,0.08); border-color: #5a9e4b; }
+        .drop-icon { font-size: 3rem; display: block; margin-bottom: 12px; }
+        .drop-text { font-family: 'Cinzel', serif; font-size: 1rem; color: var(--parchment); letter-spacing: 1px; }
+        .file-name { display: none; font-size: 0.95rem; color: var(--gold-bright); margin-top: 10px; word-break: break-all; }
+        .file-input { display: none; }
+        .paste-toggle { display: block; text-align: center; cursor: pointer; color: var(--gold); font-size: 0.95rem; text-decoration: underline; opacity: 0.7; }
+        .paste-toggle:hover { opacity: 1; }
+        .paste-area { display: none; width: 100%; height: 200px; background: rgba(201,168,76,0.06); border: 1px solid rgba(201,168,76,0.3); border-radius: 8px; color: var(--cream); font-family: 'Cormorant Garamond', serif; font-size: 1rem; padding: 15px; resize: vertical; }
+        .paste-area.visible { display: block; }
+        .paste-area:focus { outline: none; border-color: var(--gold); }
+
+        .generate-btn { width: 100%; padding: 18px; font-family: 'Cinzel', serif; font-size: 1.2rem; letter-spacing: 3px; text-transform: uppercase; background: linear-gradient(135deg, var(--gold), var(--gold-bright), var(--gold)); color: var(--dark-brown); border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s; font-weight: 700; box-shadow: 0 4px 15px rgba(201,168,76,0.3); }
+        .generate-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 25px rgba(201,168,76,0.5); }
+        .generate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .generate-btn.loading { background: linear-gradient(135deg, var(--medium-brown), var(--dark-brown)); color: var(--gold); animation: pulse 1.5s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+
+        .right-panel { flex: 1; padding: 30px; overflow-y: auto; }
+        #welcome { text-align: center; padding-top: 15vh; }
+        #welcome .welcome-icon { font-size: 5rem; display: block; margin-bottom: 20px; opacity: 0.3; }
+        #welcome h2 { font-family: 'Cinzel Decorative', serif; font-size: 1.8rem; color: var(--gold); opacity: 0.4; letter-spacing: 3px; }
+        #welcome p { color: var(--parchment-dark); opacity: 0.4; margin-top: 10px; font-size: 1.05rem; font-style: italic; }
+        #results { display: none; }
+        #results.visible { display: block; }
+
+        .content-section { background: rgba(201,168,76,0.05); border: 1px solid rgba(201,168,76,0.15); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+        .content-section h3 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.15rem; margin-bottom: 14px; letter-spacing: 1px; }
+
+        .pain-main { background: rgba(114,47,55,0.15); border: 1px solid rgba(114,47,55,0.3); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+        .pain-secondary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .pain-item { background: rgba(201,168,76,0.06); border: 1px solid rgba(201,168,76,0.15); border-radius: 8px; padding: 12px; }
+        .pain-item strong { color: var(--gold); }
+        .solution-tag { display: inline-block; background: rgba(90,158,75,0.15); color: #8fc96a; padding: 3px 10px; border-radius: 12px; font-size: 0.85rem; margin-top: 6px; }
+
+        .copyable { position: relative; background: rgba(26,18,9,0.6); border: 1px solid rgba(201,168,76,0.15); border-radius: 8px; padding: 18px; white-space: pre-wrap; line-height: 1.7; font-size: 1rem; }
+        .action-bar { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+        .action-btn { padding: 8px 16px; font-family: 'Cinzel', serif; font-size: 0.85rem; letter-spacing: 1px; border-radius: 6px; cursor: pointer; transition: all 0.2s; border: 1px solid var(--gold); background: transparent; color: var(--gold); }
+        .action-btn:hover { background: var(--gold); color: var(--dark-brown); }
+        .action-btn.primary { background: var(--gold); color: var(--dark-brown); }
+        .action-btn.primary:hover { background: var(--gold-bright); }
+
+        .advice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .advice-block { background: rgba(201,168,76,0.06); border: 1px solid rgba(201,168,76,0.12); border-radius: 8px; padding: 14px; }
+        .advice-block h4 { color: var(--gold); font-family: 'Cinzel', serif; font-size: 0.95rem; margin-bottom: 8px; }
+        .advice-block ul { padding-left: 18px; }
+        .advice-block li { margin-bottom: 6px; line-height: 1.5; }
+
+        .lookalike-card { background: linear-gradient(135deg, rgba(90,158,75,0.08), rgba(201,168,76,0.06)); border: 1px solid rgba(90,158,75,0.25); border-radius: 10px; padding: 18px; margin-bottom: 14px; }
+        .lookalike-card .company-name { font-family: 'Cinzel', serif; font-size: 1.15rem; color: #8fc96a; margin-bottom: 6px; }
+        .lookalike-card .deal-meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.88rem; color: var(--parchment-dark); margin-bottom: 8px; }
+        .lookalike-card .deal-meta span { background: rgba(201,168,76,0.1); padding: 2px 10px; border-radius: 12px; }
+        .lookalike-card .owner-info { color: var(--gold-bright); font-weight: 600; font-size: 1rem; margin-top: 6px; }
+        .lookalike-card a { color: var(--gold); text-decoration: underline; }
+
+        .script-section { background: rgba(201,168,76,0.04); border-left: 3px solid var(--gold); padding: 12px 16px; margin-bottom: 10px; border-radius: 0 8px 8px 0; }
+        .script-section .script-label { font-family: 'Cinzel', serif; font-size: 0.85rem; color: var(--gold); letter-spacing: 1px; margin-bottom: 6px; }
+
+        .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(15,10,5,0.92); z-index: 1000; justify-content: center; align-items: center; flex-direction: column; gap: 24px; }
+        .loading-overlay.visible { display: flex; }
+        .loading-overlay .quill { font-size: 4rem; animation: float 2s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-15px) rotate(5deg); } }
+        .loading-overlay p { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.3rem; letter-spacing: 2px; text-align: center; }
+        .loading-overlay .loading-sub { font-family: 'Cormorant Garamond', serif; color: var(--parchment-dark); font-style: italic; font-size: 1rem; letter-spacing: 0; }
+        .loading-bar { width: 300px; height: 4px; background: rgba(201,168,76,0.2); border-radius: 2px; overflow: hidden; }
+        .loading-bar-fill { height: 100%; background: var(--gold); border-radius: 2px; animation: loadBar 4s ease-in-out forwards; }
+        @keyframes loadBar { 0% { width: 0; } 30% { width: 40%; } 60% { width: 70%; } 85% { width: 88%; } 100% { width: 100%; } }
+
+        .epic-modal { display: none; position: fixed; inset: 0; background: rgba(15,10,5,0.9); z-index: 2000; justify-content: center; align-items: center; }
+        .epic-modal.visible { display: flex; }
+        .epic-modal-content { background: linear-gradient(135deg, #1a1209, #2c1810); border: 2px solid var(--gold); border-radius: 16px; padding: 40px; max-width: 520px; text-align: center; box-shadow: 0 0 60px rgba(201,168,76,0.2); animation: modalIn 0.4s ease-out; }
+        @keyframes modalIn { from { transform: scale(0.8) translateY(30px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+        .epic-modal-content .modal-ornament { font-size: 3.5rem; display: block; margin-bottom: 16px; }
+        .epic-modal-content h2 { font-family: 'Cinzel Decorative', serif; color: var(--gold); font-size: 1.6rem; letter-spacing: 2px; margin-bottom: 16px; }
+        .epic-modal-content p { color: var(--parchment); font-size: 1.05rem; line-height: 1.7; font-style: italic; }
+        .epic-modal-content button { margin-top: 24px; padding: 12px 32px; font-family: 'Cinzel', serif; font-size: 1rem; letter-spacing: 2px; background: var(--gold); color: var(--dark-brown); border: none; border-radius: 8px; cursor: pointer; font-weight: 700; }
+
+        .company-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(201,168,76,0.1); border: 1px solid rgba(201,168,76,0.3); border-radius: 8px; padding: 8px 16px; margin-bottom: 16px; font-family: 'Cinzel', serif; color: var(--gold); font-size: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>El Scriptorium de Sesame</h1>
+        <p>Donde cada reunion se convierte en una obra maestra</p>
+        <div class="ornament">&#10044; &#10040; &#10044;</div>
+    </div>
+    <div class="main">
+        <div class="left-panel">
+            <div class="section-title">&#128220; Pergamino de la Reunion</div>
+            <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <span class="drop-icon">&#128220;</span>
+                <span class="drop-text">Arrastra la transcripcion aqui</span>
+                <small style="color:var(--parchment-dark);display:block;margin-top:6px">.txt, .doc, .md &mdash; o haz clic para seleccionar</small>
+                <div class="file-name" id="fileName"></div>
+                <input type="file" class="file-input" id="fileInput" accept=".txt,.md,.doc,.docx,.pdf">
+            </div>
+            <span class="paste-toggle" id="togglePaste">O pega la transcripcion directamente &darr;</span>
+            <textarea class="paste-area" id="pasteArea" placeholder="Pega aqui la transcripcion de la videollamada..."></textarea>
+            <button class="generate-btn" id="generateBtn" disabled>&#10006; Forjar Obra Maestra &#10006;</button>
+        </div>
+        <div class="right-panel">
+            <div id="welcome">
+                <span class="welcome-icon">&#127963;</span>
+                <h2>Awaiting the Sacred Manuscript</h2>
+                <p>Sube la transcripcion de tu videollamada y presiona "Forjar Obra Maestra" para que los escribas del Scriptorium creen tu contenido personalizado.</p>
+            </div>
+            <div id="results">
+                <div class="content-section" id="companySection"></div>
+                <div class="content-section" id="painSection"></div>
+                <div class="content-section" id="lookalikeSection"></div>
+                <div class="content-section" id="emailSection"></div>
+                <div class="content-section" id="videoSection"></div>
+                <div class="content-section" id="adviceSection"></div>
+                <div class="action-bar" style="margin-bottom:30px;justify-content:center">
+                    <button class="action-btn primary" onclick="downloadPDF()">&#128196; Descargar One-Pager PDF</button>
+                    <button class="action-btn primary" onclick="downloadPPTX()">&#128202; Descargar Presentacion PPTX</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="quill">&#129682;</div>
+        <p>Los Escribas Trabajan...</p>
+        <p class="loading-sub" id="loadingPhase">Analizando el pergamino sagrado...</p>
+        <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+    </div>
+
+    <div class="epic-modal" id="epicModal">
+        <div class="epic-modal-content">
+            <span class="modal-ornament" id="modalOrnament"></span>
+            <h2 id="modalTitle"></h2>
+            <p id="modalText"></p>
+            <button onclick="closeModal()">&#9876; Que Comience la Obra &#9876;</button>
+        </div>
+    </div>
+
+<script>
+// ==========================================
+// DEMO MODE - Pre-loaded content
+// ==========================================
+const DEMO_DATA = {
+    company_name: "Construcciones Levante S.L.",
+    contact_name: "Marta Reyes",
+    contact_role: "Directora de RRHH",
+    contact2_name: "Javier Ortega",
+    contact2_role: "Director Financiero",
+    company_size: "120 empleados",
+    industry: "Construccion",
+    locations: "Valencia y Alicante + obras en Comunidad Valenciana",
+
+    main_pain_point: {
+        title: "Control Horario: Riesgo Inminente de Multa",
+        description: "Fichaje en papel para 80 operarios de obra. Las hojas se mandan por WhatsApp como fotos borrosas. Marta dedica 2 dias/semana a pasar datos a Excel. Inspeccion de Trabajo hace 6 meses con requerimiento activo ya fuera de plazo. Riesgo de multa de hasta 7.500\u20ac por trabajador (900.000\u20ac potenciales para 120 empleados).",
+        sesame_feature: "Control Horario Multidispositivo",
+        solution: "Fichaje desde app movil con geolocalizacion (ideal para obra), Sesame Wall con FaceID para accesos de obra, y fichaje web para oficina. Informes automaticos validos para inspeccion de trabajo. Operativo en 2-3 semanas. Cumplimiento normativo inmediato."
+    },
+
+    secondary_pain_points: [
+        {
+            title: "Vacaciones y Ausencias: Solapamientos y Crisis Operativas",
+            description: "Excel compartido sin control. Caso reciente: 3 alba\u00f1iles del mismo equipo de vacaciones la misma semana. El jefe de obra descubrio el viernes que no tenia gente. Politicas del convenio de construccion gestionadas 'de cabeza' por Marta.",
+            sesame_feature: "Gestion de Vacaciones y Ausencias",
+            solution: "Calendario visual del equipo con alertas automaticas de solapamiento. Aprobacion digital en un clic. Politicas configurables por convenio de construccion (permisos por boda, mudanza, defuncion, etc.). Si Marta se pone enferma, el sistema sigue funcionando."
+        },
+        {
+            title: "Preparatoria de Nominas: Errores que Cuestan Miles de Euros",
+            description: "3 dias/mes preparando incidencias manualmente. El mes pasado, error en baja medica = 4.000\u20ac pagados de mas a 12 trabajadores. Gestoria: 1.800\u20ac/mes + 3.000\u20ac/a\u00f1o en correcciones extra. Cruce manual de fichajes, ausencias, horas extra y pluses de nocturnidad.",
+            sesame_feature: "Incidencias y Envio de Nominas",
+            solution: "Centralizacion automatica de todas las incidencias: fichajes, ausencias, horas extra y pluses. Exportacion directa al formato de la gestoria. Datos verificados y sin errores manuales. De 3 dias de trabajo a 2 horas."
+        }
+    ],
+
+    email: {
+        subject: "Seguimiento reunion - Solucion de control horario para Construcciones Levante",
+        body: "Hola Marta, Javier,\n\nGracias por vuestro tiempo esta ma\u00f1ana. Ha sido muy enriquecedor conocer de primera mano los retos que gestionais en Construcciones Levante con 120 personas entre oficinas y obra.\n\nDe nuestra conversacion me quedo claro que hay tres temas prioritarios:\n\n1. Control horario: El requerimiento de Inspeccion de Trabajo es urgente. La buena noticia es que con Sesame podemos tener el fichaje multidispositivo operativo en 2-3 semanas \u2014 app movil con geolocalizacion para los 80 operarios de obra y fichaje web para oficina. Los informes se generan automaticamente y son validos para cualquier inspeccion.\n\n2. Vacaciones y ausencias: El episodio de los 3 alba\u00f1iles de vacaciones la misma semana no volveria a pasar. El calendario visual con alertas de solapamiento y las politicas del convenio de construccion configuradas eliminan ese riesgo por completo.\n\n3. Preparatoria de nominas: Los 3 dias/mes que dedicas a cruzar datos y los errores como los 4.000\u20ac del mes pasado desaparecen cuando las incidencias se centralizan automaticamente. La gestoria recibe datos limpios y verificados.\n\nPara vuestro equipo de 120 personas, el Plan Starter de Sesame cubre todo esto por 660\u20ac/mes (5,50\u20ac/empleado). Si lo comparais con el riesgo de multa, los errores de nomina y el tiempo de Marta que se libera, el retorno es inmediato.\n\nComo quedamos, el martes 4 de marzo a las 11:00 os hago una demo personalizada con vuestros datos para que veais exactamente como funcionaria en vuestro dia a dia.\n\n\u00bfOs parece si me mandais un listado anonimizado de vuestros centros de trabajo y tipos de turno para preparar la demo con datos reales?\n\nUn saludo,\nCarlos Martinez\nAccount Executive | Sesame HR\ncarlos.martinez@sesametime.com"
+    },
+
+    video_script: {
+        intro_20s: "Sesame HR es la plataforma todo-en-uno que ya utilizan mas de 15.000 empresas para digitalizar su gestion de personas. Desde el control horario hasta la preparatoria de nominas, todo en un unico lugar accesible desde cualquier dispositivo.",
+        company_situation_60s: "Construcciones Levante gestiona 120 empleados repartidos entre oficinas en Valencia y Alicante, y 80 operarios en obras por toda la Comunidad Valenciana. Actualmente, el control horario se hace en papel: los operarios rellenan hojas a mano, el encargado las fotografia y las manda por WhatsApp. Marta, la directora de RRHH, dedica 2 dias a la semana solo a pasar esas fotos a Excel. Con un requerimiento activo de Inspeccion de Trabajo, la situacion es critica. A esto se suman los solapamientos de vacaciones que generan crisis operativas en obra, y una preparatoria de nominas manual que el mes pasado costo 4.000 euros en errores.",
+        sesame_solution_60s: "Con Sesame, los operarios fichan desde su movil con un solo clic, con geolocalizacion que confirma que estan en la obra correcta. En oficina, fichan desde el ordenador o con FaceID. Marta deja de procesar fotos y tiene informes automaticos validos para inspeccion. Las vacaciones se gestionan con un calendario visual que alerta si hay solapamientos, y las politicas del convenio de construccion quedan configuradas para que el sistema las aplique solo. Las incidencias de nomina se centralizan automaticamente: fichajes, ausencias, horas extra y pluses. La gestoria recibe un archivo limpio y verificado. De 3 dias de trabajo a 2 horas.",
+        outro_5s: "Sesame HR. Todo tu equipo, una sola plataforma. Hablemos."
+    },
+
+    one_pager: {
+        headline: "Sesame HR para Construcciones Levante",
+        subheadline: "Digitaliza tu gestion de RRHH y elimina el riesgo normativo",
+        company_context: "120 empleados entre oficinas (Valencia/Alicante) y 80 operarios en obra. Gestion actual con Excel y papel. Requerimiento activo de Inspeccion de Trabajo.",
+        challenges: [
+            "Control horario en papel: 2 dias/semana procesando + riesgo de multa de hasta 900.000\u20ac",
+            "Vacaciones en Excel: solapamientos que generan crisis operativas en obra",
+            "Nominas manuales: errores de miles de euros y 3 dias/mes de trabajo para RRHH"
+        ],
+        solutions: [
+            { challenge: "Control Horario", feature: "Fichaje multidispositivo", benefit: "Cumplimiento inmediato + 2 dias/semana liberados" },
+            { challenge: "Vacaciones", feature: "Calendario visual + alertas", benefit: "Cero solapamientos + politicas automatizadas por convenio" },
+            { challenge: "Nominas", feature: "Incidencias centralizadas", benefit: "De 3 dias a 2 horas + eliminacion de errores" }
+        ],
+        cta: "Demo personalizada: Martes 4 de marzo, 11:00 | sesamehr.es"
+    },
+
+    presentation: {
+        title_slide: { title: "Sesame HR \u00d7 Construcciones Levante", subtitle: "Propuesta personalizada para digitalizar vuestra gestion de RRHH" },
+        context_slide: { title: "Conocemos vuestra situacion", content: "120 empleados entre oficinas (Valencia y Alicante) y 80 operarios en obra. Gestion actual con Excel y papel que genera ineficiencias, riesgo normativo y errores que impactan en costes." },
+        pain_slides: [
+            { title: "Control Horario: Riesgo de Multa", description: "Fichaje en papel, fotos por WhatsApp, 2 dias/semana procesando. Requerimiento de Inspeccion activo.", solution: "Fichaje multidispositivo con geolocalizacion. Operativo en 2-3 semanas.", benefit: "Cumplimiento normativo inmediato + 2 dias/semana liberados" },
+            { title: "Vacaciones: Conflictos Constantes", description: "Excel sin control de solapamientos. 3 empleados del mismo equipo de vacaciones la misma semana.", solution: "Calendario visual con alertas de conflicto y politicas por convenio.", benefit: "Cero solapamientos + gestion autonoma" },
+            { title: "Nominas: Errores que Cuestan Dinero", description: "3 dias/mes preparacion manual. 4.000\u20ac pagados de mas. Gestoria: 1.800\u20ac/mes + 3.000\u20ac/a\u00f1o extras.", solution: "Incidencias centralizadas con exportacion directa a gestoria.", benefit: "Ahorro 3 dias/mes + eliminacion errores" }
+        ],
+        value_slide: { title: "\u00bfPor que Sesame?", points: ["Todo-en-uno: una plataforma para todo el ciclo del empleado", "Implementacion rapida: operativos en 2-3 semanas", "Multidispositivo: ideal para obra (app, WhatsApp, FaceID)", "Cumplimiento normativo garantizado", "+15.000 empresas ya confian en Sesame"] },
+        next_steps_slide: { title: "Proximos Pasos", steps: ["Demo personalizada \u2014 Martes 4 de marzo, 11:00", "Piloto de 2 semanas con Control Horario", "Despliegue completo con Customer Success"] }
+    },
+
+    sales_advice: {
+        closing_strategy: "URGENCIA NORMATIVA como palanca principal. Javier (CFO) entiende el riesgo financiero \u2014 multas de hasta 900.000\u20ac. Usar framework Problema-Impacto-Solucion-Beneficio. Cerrar piloto de control horario en la demo del martes. Una vez dentro con fichaje, expandir a vacaciones y nominas.",
+        recommended_plan: "Plan Starter (5,50\u20ac/usuario/mes) \u2014 Cubre las 3 necesidades principales: Control Horario, Vacaciones/Ausencias, y Preparatoria de Nominas. No necesitan funcionalidades de Professional por ahora.",
+        recommended_addons: ["Sesame WhatsApp (0,80\u20ac/empleado/mes) \u2014 ideal para operarios de obra que ya usan WhatsApp", "Control de Gastos (25\u20ac/mes) \u2014 para gestionar gastos de desplazamiento a obras"],
+        estimated_price: "Plan Starter: 660\u20ac/mes (120 x 5,50\u20ac) + WhatsApp: 96\u20ac/mes + Gastos: 25\u20ac/mes = 781\u20ac/mes total (9.372\u20ac/a\u00f1o)",
+        objections: [
+            { objection: "700 euros al mes es mucho para nosotros", rebuttal: "Entiendo la preocupacion, Javier. Pero hagamos numeros: solo en errores de nomina estais perdiendo ~7.000\u20ac/a\u00f1o. El tiempo de Marta procesando fichajes son 2 dias/semana = 104 dias/a\u00f1o. Y una sola multa de inspeccion puede ser de 7.500\u20ac por trabajador. Los 660\u20ac/mes se pagan solos en el primer mes." },
+            { objection: "Necesitamos verlo funcionando primero", rebuttal: "Totalmente de acuerdo. Por eso os propongo un piloto de 2 semanas empezando por Control Horario. En 3 dias lo teneis operativo y podeis probarlo con un equipo de obra antes de desplegarlo a todos." },
+            { objection: "Tenemos que consultarlo con gerencia", rebuttal: "Claro, es una decision importante. \u00bfOs ayudaria si preparo un business case con los numeros que hemos comentado hoy? Multas evitadas, ahorro en errores de nomina y horas de Marta liberadas. Asi gerencia tiene todos los datos para decidir." }
+        ],
+        urgency_levers: [
+            "Requerimiento de Inspeccion FUERA DE PLAZO \u2014 cada dia sin solucion es un dia de riesgo de multa",
+            "Cierre de Q1: posibilidad de precio especial si cierran antes del 31 de marzo",
+            "Los errores de nomina seguiran pasando cada mes \u2014 el proximo puede ser mayor que 4.000\u20ac"
+        ],
+        next_steps: [
+            "Demo personalizada martes 4 de marzo a las 11:00",
+            "Pedir listado anonimizado de centros de trabajo y turnos para personalizar la demo",
+            "Preparar business case con ROI para que lo presenten a gerencia"
+        ],
+        champion: "Marta Reyes (Dir. RRHH) \u2014 Es quien sufre el dolor diariamente. Esta motivada y receptiva. Activarla compartiendo el business case para que lo defienda internamente.",
+        economic_buyer: "Javier Ortega (Dir. Financiero) \u2014 Asistio a la reunion, entiende los numeros y el riesgo. Posiblemente necesite validacion de gerencia/CEO para la firma, pero su recomendacion sera decisiva.",
+        risk_level: "MEDIO-BAJO \u2014 Hay urgencia real (inspeccion), dolor cuantificado (errores nomina), y ambos decisores fueron a la primera reunion. El riesgo es que 'lo consulten con gerencia' y se enfrie. Mitigar con business case y piloto sin compromiso."
+    },
+
+    // REAL HUBSPOT LOOK-ALIKES
+    lookalikes: [
+        {
+            company: "Ingedom S.L.",
+            industry: "Construccion",
+            tier: "Tier 3",
+            employees: "50-100",
+            amount: "330\u20ac/mes",
+            close_date: "27 Feb 2026",
+            owner_name: "Eduardo Solana",
+            deal_id: "53429694348",
+            pain_original: "Control horario para equipos en obra dispersos",
+            success: "Implementacion en 3 semanas. Fichaje movil adoptado por el 95% del equipo en obra en la primera semana."
+        },
+        {
+            company: "Mindual",
+            industry: "Construccion",
+            tier: "Tier 3",
+            employees: "50-100",
+            amount: "535,50\u20ac/mes",
+            close_date: "23 Feb 2026",
+            owner_name: "Vanesa Perez",
+            deal_id: "48154864183",
+            pain_original: "Gestion de turnos y horas extra sin visibilidad para RRHH",
+            success: "Reduccion del 80% en incidencias de nomina desde el primer mes. RRHH paso de 3 dias de cierre a medio dia."
+        },
+        {
+            company: "Tecnicas Aplicadas del Mediterraneo S.L.",
+            industry: "Construccion",
+            tier: "Tier 3",
+            employees: "50-100",
+            amount: "487,20\u20ac/mes",
+            close_date: "30 Ene 2026",
+            owner_name: "Propietario CRM",
+            deal_id: "54960876869",
+            pain_original: "Incumplimiento normativo de registro de jornada con requerimiento activo",
+            success: "Requerimiento de Inspeccion de Trabajo resuelto en menos de 1 mes tras implementar Sesame."
+        }
+    ]
+};
+
+// ==========================================
+// EPIC MESSAGES
+// ==========================================
+const EPIC_MESSAGES = [
+    { ornament: "\u{1F3DB}", title: "\u00a1Por las Musas del Olimpo!", text: "El pergamino sagrado ha llegado al Scriptorium. Los maestros escribas, herederos de la sabiduria de Leonardo da Vinci, descifraran cada palabra para forjar una obra digna de los grandes archivos de Alejandria..." },
+    { ornament: "\u2694\uFE0F", title: "\u00a1Ave, Magister Venditor!", text: "Vuestro manuscrito ha cruzado las puertas de la Bottega. Como el mismisimo Da Vinci ante un lienzo en blanco, transformaremos este conocimiento bruto en una pieza que haria temblar los cimientos del Coliseo..." },
+    { ornament: "\u{1FAB6}", title: "\u00a1Eureka! \u00a1El Manuscrito ha Llegado!", text: "Los alquimistas del conocimiento han recibido la materia prima. De este crisol de palabras nacera una obra maestra que rivalizara con los frescos de la Capilla Sixtina..." },
+    { ornament: "\u{1F3FA}", title: "\u00a1Gloria al Nuevo Pergamino!", text: "Como Marco Aurelio documentaba la sabiduria del Imperio, nuestros escribas inmortalizaran el conocimiento de esta reunion. De la pluma de Leonardo nacera contenido digno de los archivos mas selectos de la antigua Roma..." }
+];
+
+const LOADING_PHASES = [
+    "Descifrando el pergamino sagrado...",
+    "Identificando los dolores del prospecto...",
+    "Cruzando con el conocimiento de Sesame...",
+    "Forjando el email de seguimiento...",
+    "Componiendo el guion del video...",
+    "Buscando empresas similares en el CRM...",
+    "Preparando consejos estrategicos...",
+    "La obra maestra esta casi lista..."
+];
+
+// ==========================================
+// STATE & DOM
+// ==========================================
+let transcriptText = '';
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileName = document.getElementById('fileName');
+const pasteArea = document.getElementById('pasteArea');
+const togglePaste = document.getElementById('togglePaste');
+const generateBtn = document.getElementById('generateBtn');
+
+togglePaste.addEventListener('click', () => {
+    pasteArea.classList.toggle('visible');
+    togglePaste.textContent = pasteArea.classList.contains('visible') ? 'Ocultar area de texto' : 'O pega la transcripcion directamente';
+});
+
+pasteArea.addEventListener('input', () => { transcriptText = pasteArea.value; checkReady(); });
+
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+});
+fileInput.addEventListener('change', (e) => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        transcriptText = e.target.result;
+        dropZone.classList.add('has-file');
+        fileName.textContent = '\u{1F4DC} ' + file.name;
+        fileName.style.display = 'block';
+        dropZone.querySelector('.drop-icon').textContent = '\u2705';
+        dropZone.querySelector('.drop-text').textContent = 'Pergamino recibido';
+        checkReady();
+        showEpicModal();
+    };
+    reader.readAsText(file);
+}
+
+function checkReady() {
+    generateBtn.disabled = !(transcriptText.trim().length > 20);
+}
+
+// ==========================================
+// EPIC MODAL
+// ==========================================
+function showEpicModal() {
+    const msg = EPIC_MESSAGES[Math.floor(Math.random() * EPIC_MESSAGES.length)];
+    document.getElementById('modalOrnament').textContent = msg.ornament;
+    document.getElementById('modalTitle').textContent = msg.title;
+    document.getElementById('modalText').textContent = msg.text;
+    document.getElementById('epicModal').classList.add('visible');
+}
+function closeModal() { document.getElementById('epicModal').classList.remove('visible'); }
+
+// ==========================================
+// GENERATE (DEMO MODE - Simulated with loading)
+// ==========================================
+generateBtn.addEventListener('click', async () => {
+    generateBtn.classList.add('loading');
+    generateBtn.disabled = true;
+    document.getElementById('loadingOverlay').classList.add('visible');
+
+    // Simulate AI processing with loading phases
+    const phaseEl = document.getElementById('loadingPhase');
+    for (let i = 0; i < LOADING_PHASES.length; i++) {
+        phaseEl.textContent = LOADING_PHASES[i];
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    // Small final pause for effect
+    await new Promise(r => setTimeout(r, 300));
+
+    renderResults(DEMO_DATA);
+
+    document.getElementById('loadingOverlay').classList.remove('visible');
+    generateBtn.classList.remove('loading');
+    generateBtn.disabled = false;
+});
+
+// ==========================================
+// RENDER
+// ==========================================
+function renderResults(d) {
+    document.getElementById('welcome').style.display = 'none';
+    document.getElementById('results').classList.add('visible');
+
+    // Company badge
+    document.getElementById('companySection').innerHTML = `
+        <div class="company-badge">\u{1F3E2} ${d.company_name}</div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:8px;font-size:0.95rem;color:var(--parchment-dark)">
+            <span>\u{1F464} ${d.contact_name} (${d.contact_role})</span>
+            <span>\u{1F464} ${d.contact2_name} (${d.contact2_role})</span>
+            <span>\u{1F465} ${d.company_size}</span>
+            <span>\u{1F3D7}\uFE0F ${d.industry}</span>
+            <span>\u{1F4CD} ${d.locations}</span>
+        </div>`;
+
+    // Pain points
+    let painHTML = '<h3>\u{1F3AF} Analisis de Pain Points</h3>';
+    painHTML += `<div class="pain-main"><h3 style="color:#e74c3c">\u{1F534} PAIN POINT PRINCIPAL \u2014 Motivo de Compra</h3>
+        <p style="margin-top:4px;font-size:1.1rem"><strong>${d.main_pain_point.title}</strong></p>
+        <p style="color:var(--parchment-dark);margin-top:6px;line-height:1.6">${d.main_pain_point.description}</p>
+        <p style="margin-top:10px;color:#8fc96a">\u{1F4A1} <strong>Solucion Sesame (${d.main_pain_point.sesame_feature}):</strong> ${d.main_pain_point.solution}</p></div>`;
+    painHTML += '<div style="font-family:Cinzel,serif;font-size:0.9rem;color:var(--gold);margin-bottom:10px;letter-spacing:1px">PAIN POINTS SECUNDARIOS</div><div class="pain-secondary">';
+    d.secondary_pain_points.forEach(pp => {
+        painHTML += `<div class="pain-item"><strong>${pp.title}</strong><p style="margin-top:4px;line-height:1.5">${pp.description}</p>
+            <p style="margin-top:8px;color:#8fc96a;font-size:0.95rem">\u{1F4A1} ${pp.solution}</p>
+            <span class="solution-tag">\u{1F527} ${pp.sesame_feature}</span></div>`;
+    });
+    painHTML += '</div>';
+    document.getElementById('painSection').innerHTML = painHTML;
+
+    // Look-alikes
+    let laHTML = '<h3>\u{1F465} Empresas Similares Cerradas (Look-Alikes del CRM)</h3>';
+    laHTML += '<p style="color:var(--parchment-dark);margin-bottom:14px;font-style:italic">Deals cerrados en HubSpot con perfil similar. Contacta al AE que los cerro para obtener insights y estrategia.</p>';
+    d.lookalikes.forEach(la => {
+        laHTML += `<div class="lookalike-card">
+            <div class="company-name">\u{1F3C6} ${la.company}</div>
+            <div class="deal-meta">
+                <span>\u{1F3D7}\uFE0F ${la.industry}</span>
+                <span>\u{1F465} ${la.employees} empleados</span>
+                <span>\u{1F3AF} ${la.tier}</span>
+                <span>\u{1F4B6} ${la.amount}</span>
+                <span>\u{1F4C5} ${la.close_date}</span>
+            </div>
+            <div class="owner-info">\u{1F451} Cerrado por: ${la.owner_name}</div>
+            <p style="margin-top:8px"><strong>Pain point original:</strong> ${la.pain_original}</p>
+            <p style="margin-top:4px;color:#8fc96a"><strong>Caso de exito:</strong> ${la.success}</p>
+            <a href="https://app.hubspot.com/contacts/8564339/record/0-3/${la.deal_id}" target="_blank" style="font-size:0.85rem;display:inline-block;margin-top:6px">Ver deal en HubSpot \u2192</a>
+        </div>`;
+    });
+    laHTML += '<p style="color:var(--parchment-dark);font-size:0.85rem;margin-top:8px;font-style:italic">\u{1F4A1} Tip: Contacta a Eduardo Solana o Vanesa Perez \u2014 han cerrado constructoras similares recientemente y pueden compartir su estrategia.</p>';
+    document.getElementById('lookalikeSection').innerHTML = laHTML;
+
+    // Email
+    document.getElementById('emailSection').innerHTML = `<h3>\u{1F4E7} Email de Follow-Up</h3>
+        <p style="color:var(--gold);margin-bottom:8px"><strong>Asunto:</strong> ${d.email.subject}</p>
+        <div class="copyable" id="emailBody">${d.email.body}</div>
+        <div class="action-bar"><button class="action-btn primary" onclick="copyContent('emailBody')">&#128203; Copiar Email</button></div>`;
+
+    // Video script
+    let videoHTML = '<h3>\u{1F3AC} Guion del Video Personalizado</h3>';
+    const sections = [
+        { label: '\u23F0 INTRO (20s)', text: d.video_script.intro_20s },
+        { label: '\u{1F3D7}\uFE0F SITUACION EMPRESA (60s)', text: d.video_script.company_situation_60s },
+        { label: '\u{1F4A1} SOLUCION SESAME (60s)', text: d.video_script.sesame_solution_60s },
+        { label: '\u{1F3C1} CIERRE (5s)', text: d.video_script.outro_5s }
+    ];
+    sections.forEach(s => {
+        videoHTML += `<div class="script-section"><div class="script-label">${s.label}</div><p>${s.text}</p></div>`;
+    });
+    videoHTML += '<div class="action-bar"><button class="action-btn primary" onclick="copyVideoScript()">&#128203; Copiar Guion Completo</button></div>';
+    document.getElementById('videoSection').innerHTML = videoHTML;
+
+    // Sales advice
+    const sa = d.sales_advice;
+    let advHTML = '<h3>\u2694\uFE0F Consejo del Oraculo para Cerrar esta Venta</h3><div class="advice-grid">';
+    advHTML += `<div class="advice-block"><h4>\u{1F3AF} Estrategia de Cierre</h4><p>${sa.closing_strategy}</p></div>`;
+    advHTML += `<div class="advice-block"><h4>\u{1F4B0} Plan Recomendado</h4><p>${sa.recommended_plan}</p>
+        <p style="margin-top:6px;color:#8fc96a"><strong>Precio:</strong> ${sa.estimated_price}</p>
+        <p style="margin-top:4px"><strong>Add-ons:</strong> ${sa.recommended_addons.join(' | ')}</p></div>`;
+    advHTML += `<div class="advice-block"><h4>\u{1F6E1}\uFE0F Champion</h4><p>${sa.champion}</p>
+        <p style="margin-top:6px"><strong>Economic Buyer:</strong> ${sa.economic_buyer}</p>
+        <p style="margin-top:6px"><strong>Riesgo:</strong> ${sa.risk_level}</p></div>`;
+    advHTML += `<div class="advice-block"><h4>\u26A1 Palancas de Urgencia</h4><ul>${sa.urgency_levers.map(u=>'<li>'+u+'</li>').join('')}</ul></div>`;
+    advHTML += `<div class="advice-block"><h4>\u{1F4CB} Proximos Pasos</h4><ul>${sa.next_steps.map(s=>'<li>'+s+'</li>').join('')}</ul></div>`;
+    advHTML += '<div class="advice-block" style="grid-column:1/-1"><h4>\u{1F5E3}\uFE0F Objeciones y Respuestas</h4>';
+    sa.objections.forEach(o => {
+        advHTML += `<p style="margin-top:10px"><strong>"\u{1F914} ${o.objection}"</strong></p><p style="color:#8fc96a">\u2192 ${o.rebuttal}</p>`;
+    });
+    advHTML += '</div></div>';
+    document.getElementById('adviceSection').innerHTML = advHTML;
+}
+
+// ==========================================
+// COPY
+// ==========================================
+function copyContent(id) {
+    navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
+        const btn = event.target.closest('.action-btn');
+        if (btn) { const o = btn.innerHTML; btn.innerHTML = '\u2705 Copiado'; setTimeout(()=>{ btn.innerHTML = o; }, 2000); }
+    });
+}
+function copyVideoScript() {
+    const vs = DEMO_DATA.video_script;
+    const t = '[INTRO 20s]\n'+vs.intro_20s+'\n\n[SITUACION EMPRESA 60s]\n'+vs.company_situation_60s+'\n\n[SOLUCION SESAME 60s]\n'+vs.sesame_solution_60s+'\n\n[CIERRE 5s]\n'+vs.outro_5s;
+    navigator.clipboard.writeText(t).then(() => {
+        const btn = event.target.closest('.action-btn');
+        if (btn) { const o = btn.innerHTML; btn.innerHTML = '\u2705 Copiado'; setTimeout(()=>{ btn.innerHTML = o; }, 2000); }
+    });
+}
+
+// ==========================================
+// PDF ONE-PAGER
+// ==========================================
+function downloadPDF() {
+    const d = DEMO_DATA;
+    const op = d.one_pager;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const w = 210, m = 18;
+
+    doc.setFillColor(0, 180, 130);
+    doc.rect(0, 0, w, 40, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(22); doc.setFont('helvetica','bold');
+    doc.text(op.headline, m, 18);
+    doc.setFontSize(12); doc.setFont('helvetica','normal');
+    doc.text(op.subheadline, m, 32);
+
+    let y = 52;
+    doc.setTextColor(30,30,40); doc.setFontSize(10); doc.setFont('helvetica','bold');
+    doc.text('CONTEXTO', m, y);
+    doc.setFont('helvetica','normal');
+    const cl = doc.splitTextToSize(op.company_context, w-m*2);
+    doc.text(cl, m, y+7); y += 7 + cl.length*5 + 10;
+
+    doc.setFont('helvetica','bold'); doc.text('RETOS IDENTIFICADOS', m, y); y += 8;
+    doc.setFont('helvetica','normal');
+    op.challenges.forEach(ch => { doc.setFillColor(0,180,130); doc.circle(m+2,y-1.2,1.2,'F'); const lines = doc.splitTextToSize(ch, w-m*2-8); doc.text(lines, m+6, y); y += lines.length*5+4; });
+    y += 6;
+
+    doc.setFont('helvetica','bold'); doc.text('SOLUCIONES SESAME', m, y); y += 8;
+    op.solutions.forEach(sol => {
+        doc.setFillColor(240,248,245); doc.roundedRect(m, y-4, w-m*2, 24, 2, 2, 'F');
+        doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(0,180,130);
+        doc.text(sol.challenge, m+4, y+1);
+        doc.setTextColor(30,30,40); doc.setFont('helvetica','normal');
+        doc.text('Sesame ' + sol.feature, m+4, y+7);
+        const bl = doc.splitTextToSize(sol.benefit, w-m*2-8);
+        doc.text(bl, m+4, y+13); y += 28;
+    });
+
+    y += 4;
+    doc.setFillColor(0,180,130); doc.roundedRect(m, y, w-m*2, 14, 3, 3, 'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
+    doc.text(op.cta, w/2, y+9, { align:'center' });
+
+    doc.setTextColor(150,150,150); doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text('sesamehr.es | Sesame HR', w/2, 290, { align:'center' });
+
+    doc.save('Sesame_OnePager_Construcciones_Levante.pdf');
+}
+
+// ==========================================
+// PPTX PRESENTATION
+// ==========================================
+function downloadPPTX() {
+    const d = DEMO_DATA;
+    const p = d.presentation;
+    const pptx = new PptxGenJS();
+    pptx.layout = 'LAYOUT_WIDE';
+    const G = '00B482', D = '1E1E28';
+
+    let s = pptx.addSlide(); s.background = { color: G };
+    s.addText(p.title_slide.title, { x:0.8, y:1.5, w:'80%', fontSize:36, color:'FFFFFF', bold:true, fontFace:'Arial' });
+    s.addText(p.title_slide.subtitle, { x:0.8, y:3.2, w:'80%', fontSize:18, color:'FFFFFFCC', fontFace:'Arial' });
+    s.addText('sesamehr.es', { x:0.8, y:6.5, fontSize:10, color:'FFFFFF88' });
+
+    s = pptx.addSlide();
+    s.addText(p.context_slide.title, { x:0.8, y:0.5, w:'90%', fontSize:28, color:D, bold:true });
+    s.addText(p.context_slide.content, { x:0.8, y:1.8, w:'85%', fontSize:16, color:'444444', lineSpacing:28 });
+
+    p.pain_slides.forEach((ps,i) => {
+        s = pptx.addSlide();
+        s.addText(ps.title, { x:0.8, y:0.4, w:'90%', fontSize:24, color:D, bold:true });
+        s.addText(ps.description, { x:0.8, y:1.4, w:'85%', fontSize:14, color:'666666', lineSpacing:24 });
+        s.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x:0.6, y:3.0, w:12, h:2.2, fill:{color:'F0F8F5'}, rectRadius:0.15 });
+        s.addText('Solucion: '+ps.solution, { x:0.8, y:3.2, w:'85%', fontSize:14, color:G, bold:true });
+        s.addText('Beneficio: '+ps.benefit, { x:0.8, y:4.0, w:'85%', fontSize:13, color:'444444' });
+    });
+
+    s = pptx.addSlide();
+    s.addText(p.value_slide.title, { x:0.8, y:0.5, w:'90%', fontSize:28, color:D, bold:true });
+    p.value_slide.points.forEach((pt,i) => {
+        s.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x:0.6, y:1.6+i*1.3, w:12, h:1.0, fill:{color:i%2===0?'F0F8F5':'FFFFFF'}, rectRadius:0.1 });
+        s.addText('\u2713 '+pt, { x:1.0, y:1.75+i*1.3, w:'80%', fontSize:15, color:D });
+    });
+
+    s = pptx.addSlide(); s.background = { color: G };
+    s.addText(p.next_steps_slide.title, { x:0.8, y:0.5, w:'90%', fontSize:28, color:'FFFFFF', bold:true });
+    p.next_steps_slide.steps.forEach((st,i) => {
+        s.addText((i+1)+'. '+st, { x:0.8, y:1.8+i*1.0, w:'85%', fontSize:18, color:'FFFFFFDD' });
+    });
+    s.addText('sesamehr.es', { x:0.8, y:6.5, fontSize:10, color:'FFFFFF88' });
+
+    pptx.writeFile({ fileName:'Sesame_Presentacion_Construcciones_Levante.pptx' });
+}
+</script>
+</body>
+</html>
